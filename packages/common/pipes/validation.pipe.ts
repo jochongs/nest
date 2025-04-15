@@ -104,12 +104,62 @@ export class ValidationPipe implements PipeTransform<any> {
     );
   }
 
+  /**
+   * constructor 가 metatype으로 들어가 있는 entity를 입력받게됨
+   *
+   * 재귀적으로 돌아가며 metatype을 확인하여 원시타입에 맞게 형변환을 해주는 함수
+   */
+  private transformObject(value: object | any, metadata: ArgumentMetadata) {
+    if (!metadata.metatype) {
+      return value;
+    }
+
+    const metatype = metadata.metatype;
+
+    // value의 key값을 순회하며 metatype을 확인하여 원시타입에 맞게 형변환을 해주는 함수
+    const keys = Object.keys(value);
+
+    for (const key of keys) {
+      const type = Reflect.getMetadata('design:type', metatype.prototype, key);
+
+      console.log(`${key}의 타입은`);
+      console.log(type);
+
+      if (!type) {
+        continue;
+      }
+
+      // const isPrimitive = this.isPrimitive(value[key]);
+      // const isPrimitiveType = this.isPrimitive(type);
+
+      // if (isPrimitive && isPrimitiveType) {
+      //   value[key] = this.transformPrimitive(value[key], {
+      //     metatype: type,
+      //     type: 'custom',
+      //   });
+      // } else if (!isPrimitive && !isPrimitiveType) {
+      //   value[key] = await this.transformObject(value[key], {
+      //     metatype: type,
+      //     type: 'custom',
+      //   });
+      // }
+    }
+  }
+
   public async transform(value: any, metadata: ArgumentMetadata) {
+    console.log('');
+    console.log('transform start ====');
+
+    console.log(`1. value: ${JSON.stringify(value)}`);
+    console.log(`2. metadata: ${JSON.stringify(metadata)}`);
+
     if (this.expectedType) {
       metadata = { ...metadata, metatype: this.expectedType };
     }
 
     const metatype = metadata.metatype;
+    console.log('3. metatype');
+    console.log(metatype);
     if (!metatype || !this.toValidate(metadata)) {
       return this.isTransformEnabled
         ? this.transformPrimitive(value, metadata)
@@ -138,6 +188,17 @@ export class ValidationPipe implements PipeTransform<any> {
       // replace the entity to perform the validation against the original
       // metatype defined inside the handler
       entity = { constructor: metatype };
+    }
+
+    console.log('4. entity');
+    console.log(entity);
+
+    // 유효성 검증을 하기전에 객체의 원시 타입에 맞게 변환하는 작업이 필요함
+
+    if (this.toValidate(metadata)) {
+      const test = await this.transformObject(entity, metadata);
+      console.log('5.test');
+      console.log(test);
     }
 
     const errors = await this.validate(entity, this.validatorOptions);
